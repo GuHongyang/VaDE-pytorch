@@ -8,19 +8,23 @@ from sklearn.mixture import GaussianMixture
 from sklearn.metrics import accuracy_score
 import numpy as np
 import os
-
+from scipy.optimize import linear_sum_assignment as linear_assignment
 import ipdb
 
 
 def cluster_acc(Y_pred, Y):
-    from sklearn.utils.linear_assignment_ import linear_assignment
+    
     assert Y_pred.size == Y.size
     D = max(Y_pred.max(), Y.max())+1
     w = np.zeros((D,D), dtype=np.int64)
     for i in range(Y_pred.size):
         w[Y_pred[i], Y[i]] += 1
     ind = linear_assignment(w.max() - w)
-    return sum([w[i,j] for i,j in ind])*1.0/Y_pred.size, w
+    w2 = 0
+    for i in range(D):
+        w2 += w[ind[0][i], ind[1][i]]
+    w2 = w2 *1.0 / Y_pred.size
+    return w2, w
 
 
 def block(in_c,out_c):
@@ -178,9 +182,12 @@ class VaDE(nn.Module):
         L_rec/=L
 
         Loss=L_rec*x.size(1)
-
+        # pi_k is the prior probability of cluster k
         pi=self.pi_
+        # pi should sum to 1 in theory, but its all relative i guess
+        # log standard deviation of class
         log_sigma2_c=self.log_sigma2_c
+        # mean of the class
         mu_c=self.mu_c
 
         z = torch.randn_like(z_mu) * torch.exp(z_sigma2_log / 2) + z_mu

@@ -9,17 +9,20 @@ from torch.optim.lr_scheduler import StepLR
 from tensorboardX import SummaryWriter
 from sklearn.manifold import TSNE
 import torch.nn as nn
-
+from scipy.optimize import linear_sum_assignment as linear_assignment
 
 def cluster_acc(Y_pred, Y):
-    from sklearn.utils.linear_assignment_ import linear_assignment
     assert Y_pred.size == Y.size
     D = max(Y_pred.max(), Y.max())+1
     w = np.zeros((D,D), dtype=np.int64)
     for i in range(Y_pred.size):
         w[Y_pred[i], Y[i]] += 1
     ind = linear_assignment(w.max() - w)
-    return sum([w[i,j] for i,j in ind])*1.0/Y_pred.size, w
+    w2 = 0
+    for i in range(D):
+        w2 += w[ind[0][i], ind[1][i]]
+    w2 = w2 *1.0 / Y_pred.size
+    return w2, w
 
 
 
@@ -45,9 +48,9 @@ if __name__ == '__main__':
     vade=VaDE(args)
     if args.cuda:
         vade=vade.cuda()
-        vade=nn.DataParallel(vade,device_ids=range(4))
+        #vade=nn.DataParallel(vade,device_ids=range(4))
 
-    vade.module.pre_train(DL,pre_epoch=50)
+    vade.pre_train(DL,pre_epoch=50)
 
 
     opti=Adam(vade.parameters(),lr=2e-3)
@@ -68,7 +71,7 @@ if __name__ == '__main__':
             if args.cuda:
                 x=x.cuda()
 
-            loss=vade.module.ELBO_Loss(x)
+            loss=vade.ELBO_Loss(x)
 
             opti.zero_grad()
             loss.backward()
@@ -86,7 +89,7 @@ if __name__ == '__main__':
                     x = x.cuda()
 
                 tru.append(y.numpy())
-                pre.append(vade.module.predict(x))
+                pre.append(vade.predict(x))
 
 
         tru=np.concatenate(tru,0)
